@@ -11,7 +11,7 @@
 #define ADDR_BIT 12
 #define AVAILABLE_BIT 52
 #define NO_EXECUTE_BIT 63
-#define PMT_SIZE 1024
+#define PMT_SIZE 512
 
 typedef struct
 {
@@ -30,11 +30,7 @@ volatile PageMapTable InitTable(int Depth)
     
     PageMapTable* TempAllocOffset = AllocOffset;
     AllocOffset += PMT_SIZE;
-    for (int i = 0;i < PMT_SIZE;i++)
-    {
-        (*(TempAllocOffset + i)) = (PageMapTable){ 0, 0 };
-    }
-    if (Depth < 3) for (int i = 0;i < (Depth == 1 ? 16 : (Depth == 0 ? 1 : PMT_SIZE));i++)
+    if (Depth < 3) for (int i = 0;i < PMT_SIZE;i++)
     {
         (*TempAllocOffset) = InitTable(Depth + 1);
         TempAllocOffset++;
@@ -44,40 +40,67 @@ volatile PageMapTable InitTable(int Depth)
 
 volatile void Init()
 {
+    
     AllocOffset = 0x2000000;
-    Tier4 = InitTable(0).Low;
+    for (int i = 0;i < PMT_SIZE;i++)
+    {
+        AllocOffset[i] = (PageMapTable){ 0, 0 };
+    }
+    Tier4 = AllocOffset;//InitTable(0).Low;
 }
 
-volatile bool IdMapR(PageMapTable* Pte, void** Addr, int* Size, int Depth)
+volatile bool AllocPage(PageMapTable* BasePte, uint64_t vAddr, uint32_t pAddr, int Depth, int L4Add, int L3Add)
 {
-    int i = 0;
-    while (*Size >= 0 && i < PMT_SIZE)
+    uint32_t Index = ((uint32_t)vAddr & (0x1FF << ((3 - Depth) * 9 + 12))) >> ((3 - Depth) * 9 + 12);
+    if (Depth == 0) Index = L4Add;
+    if (Depth == 1) Index += L3Add;
+    if (Depth == 3)
     {
-        i++;
-        if (Pte->Low & (1 << PRESENT_BIT)) 
+        if (BasePte[Index].Low & (1 << PRESENT_BIT)) return false;
+        BasePte[Index].High = 0;
+        BasePte[Index].Low = (uint32_t)pAddr & 0xFFFFF000;
+        BasePte[Index].Low |= 1 << PRESENT_BIT;
+        BasePte[Index].Low |= 1 << READWRITE_BIT;
+        return true;
+    }
+    if (BasePte[Index].Low == 0) 
+    {
+        BasePte[Index].High = 0;
+        AllocOffset += PMT_SIZE;
+        BasePte[Index].Low = (size_t)AllocOffset & 0xFFFFF000;
+        for (int i = 0;i < PMT_SIZE;i++)
         {
-            *(uint16_t*)0xb8000 = 0x0F00 | ('0' + Depth);
-            return false;
+            AllocOffset[i] = (PageMapTable){ 0, 0 };
         }
-        Pte->Low |= 1 << PRESENT_BIT;
-        Pte->Low |= 1 << READWRITE_BIT;
-        // ALSO SET USER BIT WHEN ALLOCATING USER MEMORY
-        if (Depth == 3)
-        {
-            Pte->Low |= (size_t)(*Addr) & 0xFFFFF000;
-            (*Addr) += 0x1000; // 4 KiB Pages
-            (*Size) -= 0x1000;
-        }
-        else
-        {   
-            if (!IdMapR(Pte->Low & 0xFFFFF000, Addr, Size, Depth + 1)) return false;
-        }
-        Pte++;
+    }
+    BasePte[Index].Low |= 1 << PRESENT_BIT;
+    BasePte[Index].Low |= 1 << READWRITE_BIT;
+    return AllocPage(BasePte[Index].Low & 0xFFFFF000, vAddr, pAddr, Depth + 1, L4Add, L3Add);
+}
+
+volatile bool IdMap(uint32_t Addr, uint32_t Size)
+{
+    for (int i = 0;i < Size / 0x1000;i++)
+    {
+        if (!AllocPage(Tier4, Addr + i * 0x1000, Addr + i * 0x1000, 0, 0, 0)) return false;
     }
     return true;
 }
 
-volatile bool IdMap(void* Addr, int Size)
+volatile bool Map(uint32_t vAddr, uint32_t pAddr, uint32_t Size)
 {
-    return IdMapR(Tier4, &Addr, &Size, 0);
+    for (int i = 0;i < Size / 0x1000;i++)
+    {
+        if (!AllocPage(Tier4, vAddr + i * 0x1000, pAddr + i * 0x1000, 0, 0, 0)) return false;
+    }
+    return true;
+}
+
+volatile bool MapHigher(uint32_t vAddr, uint32_t pAddr, uint32_t Size)
+{
+    for (int i = 0;i < Size / 0x1000;i++)
+    {
+        if (!AllocPage(Tier4, vAddr + i * 0x1000, pAddr + i * 0x1000, 0, PMT_SIZE - 1, 508)) return false;
+    }
+    return true;
 }

@@ -55,8 +55,9 @@ ReadLoop:
 	mov fs, ax
 	mov gs, ax
 	mov ss, ax
+    mov rsp, 0x70000000
 ; Now call the kernel
-    call 0x100000
+    call 0xD0000000
 ; For safety, halt if the kernel ever returns. Should not happen.
     cli
     hlt
@@ -96,7 +97,7 @@ ReadSectorsV8086:
     sti
 
     mov word [DAPACK.cnt], 4
-    mov word [DAPACK.dest], 0x8400 + 2048
+    mov word [DAPACK.dest], 0x8400 + 4096
     mov eax, [CurrentLBA]
     mov [DAPACK.lba], eax
     mov si, DAPACK		; address of "disk address packet"
@@ -129,7 +130,7 @@ ReadSectorsV8086:
     sub eax, 4 + (0x2000 / 512)
     imul eax, 512
     add edi, eax
-    mov esi, 0x8400 + 2048
+    mov esi, 0x8400 + 4096
     mov ecx, (512 * 4) / 2
     rep movsw
     mov eax, [CurrentLBA]
@@ -203,7 +204,7 @@ times 512 - ($ - $$) db 0
 
 incbin "paging32.img"
 
-times 2048 - ($ - $$) db 0
+times 4096 - ($ - $$) db 0
 
 times 0x2000 - ($ - $$) db 0
 

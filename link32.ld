@@ -1,5 +1,6 @@
 OUTPUT_FORMAT(binary)
 SECTIONS {
+    . = 0x8600;
     .main32 : 
     {
         *(.main32)
@@ -13,7 +14,6 @@ SECTIONS {
     {
         *(.data)
     }
-    . = 0x1A00000;
     .bss : 
     {
         *(.bss)

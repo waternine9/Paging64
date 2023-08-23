@@ -8,4 +8,4 @@ build:
 	cat boot-x86_64.img >> bin/boot.img
 	rm *.img
 run:
-	qemu-system-x86_64 -hda bin/boot.img -d int -D debug-log -no-reboot
+	qemu-system-x86_64 -hda bin/boot.img -no-reboot -d int
