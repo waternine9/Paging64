@@ -13,12 +13,11 @@ kstart:
     mov gs, eax
     mov ss, eax
  
-; Set stack to be 14 MB according to x86 Memory Map
-    mov eax, 0x00EFFFFF
+    mov eax, 0xEF0000
     mov esp, eax
 ReadLoop:
     mov eax, [CurrentLBA]
-    cmp eax, 200
+    cmp eax, 800
     jl ReadSectorsV8086
 
 ; Now call the paging initializer
@@ -35,8 +34,8 @@ ReadLoop:
     or  eax, (1 << 8)
     wrmsr
     
-    ; 0x2000000 is the kernel's PML4
-    mov eax, 0x2000000
+    ; 0x40000 is the kernel's PML4
+    mov eax, 0x400000
     mov cr3, eax
     
     ; Enable paging
@@ -55,12 +54,18 @@ ReadLoop:
 	mov fs, ax
 	mov gs, ax
 	mov ss, ax
-    mov rsp, 0x70000000
+    mov rsp, 0xFFFFFFFFC0300000
+    xor rbp, rbp
+    xor rax, rax
+    xor rbx, rbx
+    xor rcx, rcx
+    xor rdx, rdx
 ; Now call the kernel
-    call 0xD0000000
+    call 0xFFFFFFFFC0000000
 ; For safety, halt if the kernel ever returns. Should not happen.
-    cli
+.int_wait:
     hlt
+    jmp .int_wait
     
 [BITS 32]
 CurrentLBA: dd 4 + (0x2000 / 512)
@@ -122,7 +127,7 @@ ReadSectorsV8086:
     mov gs, eax
     mov ss, eax
 
-    mov eax, 0x00EFFFFF
+    mov eax, 0xEF0000
     mov esp, eax
 
     mov edi, 0x100000

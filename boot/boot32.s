@@ -17,7 +17,8 @@ entry:
     mov ss, ax
     mov ax, 0x7C00
     mov sp, ax
-
+    
+    
 ; First things first, store the drive number
     or dl, 0x80
     mov [DriveNumber], dl
@@ -26,6 +27,7 @@ entry:
     mov ah, 0x42		; AL is unused
     mov dl, [DriveNumber]
     int 0x13
+
 
     ; Interrogate BIOS for MemoryMap:
 ; ...prepare the first call:
@@ -135,8 +137,6 @@ GDT16End:
 GDT16Desc:
     .GDTSize dw GDT16End - GDT16Start - 1
     .GDTAddr dd GDT16Start
-
-
 
 times 0x1BE-($-$$) db 0
 

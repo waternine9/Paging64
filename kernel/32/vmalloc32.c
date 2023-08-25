@@ -20,7 +20,7 @@ typedef struct
 } __attribute__((packed)) PageMapTable;
 
 PageMapTable* Tier4;
-PageMapTable* AllocOffset = 0x2000000;
+PageMapTable* AllocOffset = 0x400000;
 
 volatile PageMapTable InitTable(int Depth)
 {
@@ -41,7 +41,7 @@ volatile PageMapTable InitTable(int Depth)
 volatile void Init()
 {
     
-    AllocOffset = 0x2000000;
+    AllocOffset = 0x400000;
     for (int i = 0;i < PMT_SIZE;i++)
     {
         AllocOffset[i] = (PageMapTable){ 0, 0 };
